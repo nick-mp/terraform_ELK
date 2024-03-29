@@ -1,0 +1,68 @@
+version: '3.7'
+
+services:
+  elasticsearch:
+    image: elasticsearch:7.17.9
+    container_name: elasticsearch
+    environment:
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      ELASTIC_USERNAME: "elastic"
+      ELASTIC_PASSWORD: "test"
+      discovery.type: single-node
+    networks:
+      - elk
+    volumes:
+      - .configs/elasticsearch/config.yaml:/usr/share/elasticsearch/config/elasticsearch.yaml:ro
+    ports:
+      - 9200:9200
+      - 9300:9300
+
+  logstash:
+    container_name: logstash
+    image: logstash:7.16.2
+    volumes:
+      - ./configs/logstash/config.yaml:/usr/share/logstash/config/logstash.yaml:ro
+      - ./configs/logstash/pipelines/pipelines.yaml:/usr/share/logstash/config/pipelines.yaml:ro
+      - ./configs/logstash/pipelines:/usr/share/logstash/config/pipelines:ro
+      - ./var/log/nginx/access.log:/usr/share/logstash/access.log:ro
+    environment:
+      LS_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - 5044:5044
+      - 5001:5000
+      - 9600:9600
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    container_name: kibana
+    image: kibana:7.17.9
+    volumes:
+      - ./configs/kibana/config.yaml:/usr/share/kibana/config/kibana.yaml:ro
+    ports:
+      - 5601:5601
+    depends_on:
+      - elasticsearch
+    networks:
+      - elk
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.17.9
+    command: --strict.perms=false
+    user: root
+    volumes:
+      - ./configs/filebeat/config.yaml:/usr/share/filebeat/filebeat.yaml:ro
+      - ./host_metrics_app/:/host_metrics_app/:ro
+      - ./log_gen/:/log_gen/:ro
+      - /var/log/nginx/access.log:/usr/share/filebeat/access.log:ro
+      - /var/log/redis/redis-server.log:/usr/share/filebeat/redis-server.log:ro
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
+networks:
+  elk:
+    driver: brige
