@@ -3,3 +3,5 @@ meta.yml
 terraform.tfstate
 .terraform/
 .terraform.lock.hcl
+id_ttr*
+.ssh/

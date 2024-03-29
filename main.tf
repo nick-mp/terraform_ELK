@@ -36,7 +36,7 @@ resource "yandex_vpc_subnet" "subnet-test" {
 
 resource "yandex_compute_instance" "vm" {
   count    = var.count_vm
-  name     = var.count_vm
+  name     = var.name_blocks[count.index]
   hostname = var.hostname_blocks[count.index]
 
   allow_stopping_for_update = true
@@ -74,15 +74,14 @@ resource "yandex_compute_instance" "vm" {
   provisioner "remote-exec" {
     inline = [
       "cd ~",
-      "mkdir ~pv configs",
-      "mkdir ~pv docker_volumes",
-      "mkdir ~pv docker_volumes/elasticsearch",
-      "mkdir ~pv configs",
-      "mkdir ~pv configs/elasticsearch",
-      "mkdir ~pv configs/filebeat",
-      "mkdir ~pv configs/kibana",
-      "mkdir ~pv configs/logstash",
-      "mkdir ~pv configs/logstash/pipelines"
+      "mkdir -pv configs",
+      "mkdir -pv docker_volumes",
+      "mkdir -pv docker_volumes/elasticsearch",
+      "mkdir -pv configs/elasticsearch",
+      "mkdir -pv configs/filebeat",
+      "mkdir -pv configs/kibana",
+      "mkdir -pv configs/logstash",
+      "mkdir -pv configs/logstash/pipelines"
     ]
   }
 
@@ -122,17 +121,17 @@ resource "yandex_compute_instance" "vm" {
     destination = "/home/kim/configs/logstash/pipelines/pipelines.yaml"
   }
 
-  # установка doker, nginx redis
+  # установка doker, nginx, redis
   provisioner "remote-exec" {
     inline = [
       "sudo apt-get update",
-      "sudo apt install apt-transport -y",
-      "curl -fsSL ubuntu/gpg | sudo apt-key add -",
-      "sudo add-apt-repository \"deb [arch=amd64]",
-      "sudo apt-get remove docker docker-engine docker.io",
+      "sudo apt-get install -y ca-certificates curl",
+      "sudo install -m 0755 -d /etc/apt/keyrings",
+      "sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc",
+      "sudo chmod a+r /etc/apt/keyrings/docker.asc",
+      "echo \"deb [arch=$(dpkg --print-architecture)\" signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(./etc/os-release && echo '$VERSION_CODENAME') stable | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null",
       "sudo apt-get update",
-      "sudo apt install -y docker.io",
-      "sudo snap install -y docker",
+      "sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
       "sudo groupadd docker",
       "sudo usermod -aG docker $USER",
       "sudo chmod +x /home/kim/docker-compose.yaml",
@@ -141,15 +140,18 @@ resource "yandex_compute_instance" "vm" {
       "sudo chmod 777 /var/log/nginx/access.log",
       "sudo apt install -y redis",
       "sudo curl localhost",
-      "sudo systevctl restart redis",
-      "sudo chmod -R /var/log/redis",
+      "sudo systemctl restart redis",
+      "sudo chmod o+rx -R /var/log/redis",
       "sudo docker compose up -d"
     ]
   }
 
+
   connection {
-    type = "ssh"
-    host = self.network_interface[0].nat_ip_address
+    type        = "ssh"
+    user        = "kim"
+    private_key = file("./.ssh/id_ttr_2903")
+    host        = self.network_interface[0].nat_ip_address
   }
 
 }
