@@ -1,3 +1,12 @@
+variable hostname_blocks {}
+variable name_blocks {}
+variable images_blocks {}
+variable cores_blocks {}
+variable memory_blocks {}
+variable core_fraction_blocks {}
+variable count_vm {}
+
+
 terraform {
   required_providers {
     yandex = {
@@ -13,34 +22,37 @@ provider "yandex" {
   zone      = "ru-central1-a"
 }
 
-resource "yandex_vpc_network" "test-2" {
+resource "yandex_vpc_network" "test" {
   name = "network"
 }
 
 resource "yandex_vpc_subnet" "subnet-test" {
   v4_cidr_blocks = ["192.168.20.0/24"]
   zone           = "ru-central1-a"
-  network_id     = yandex_vpc_network.test-2.id
+  network_id     = yandex_vpc_network.test.id
 }
 
 
 
-resource "yandex_compute_instance" "test3" {
-  count       = 2
-  name        = "vm${count.index}"
+resource "yandex_compute_instance" "vm" {
+  count       = "${var.count_vm}"
+  name        = "${var.count_vm}"
+  hostname    = "${var.hostname_blocks[count.index]}"
+
+  allow_stopping_for_update = true
   platform_id = "standard-v1"
-  boot_disk {
-    initialize_params {
-      image_id = "fd8vbtqkqb6fhhksv1p4"
-      type     = "network-hdd"
-      size     = 5
-    }
+  
+  resources {
+    cores         = "${var.cores_blocks[count.index]}"
+    memory        = "${var.memory_blocks[count.index]}"
+    core_fraction = "${var.core_fraction_blocks[count.index]}"
   }
 
-  resources {
-    cores         = 2
-    memory        = 2
-    core_fraction = 5
+  boot_disk {
+    initialize_params {
+      image_id = "${var.images_blocks[count.index]}"
+      size = 16
+    }
   }
 
   network_interface {
@@ -54,43 +66,5 @@ resource "yandex_compute_instance" "test3" {
 
   scheduling_policy {
     preemptible = true
-  }
-}
-
-resource "yandex_lb_target_group" "tg-test" {
-  name = "my-target-group"
-
-  target {
-    subnet_id = yandex_vpc_subnet.subnet-test.id
-    address   = yandex_compute_instance.test3[0].network_interface.0.ip_address
-  }
-
-  target {
-    subnet_id = yandex_vpc_subnet.subnet-test.id
-    address   = yandex_compute_instance.test3[1].network_interface.0.ip_address
-  }
-}
-
-resource "yandex_lb_network_load_balancer" "lb-test" {
-  name = "network-lb"
-
-  listener {
-    name = "my-listener"
-    port = 80
-    external_address_spec {
-      ip_version = "ipv4"
-    }
-  }
-
-  attached_target_group {
-    target_group_id = yandex_lb_target_group.tg-test.id
-
-    healthcheck {
-      name = "http"
-      http_options {
-        port = 80
-        path = "/"
-      }
-    }
   }
 }
