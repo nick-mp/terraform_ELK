@@ -1,3 +1,5 @@
 terraform.tfvars
 meta.yml
+terraform.tfstate
+.terraform/
 .terraform.lock.hcl
